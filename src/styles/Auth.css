@@ -124,7 +124,7 @@
     color: #4f46e5;
 }
 
-/* Mobile responsiveness for welcome screen */
+/* Mobile responsiveness */
 @media (max-width: 768px) {
     .welcome-card {
         padding: 30px 20px;
@@ -139,30 +139,5 @@
         min-width: 200px;
         padding: 15px 30px;
         font-size: 1.1rem;
-    }
-
-    .welcome-actions {
-        gap: 12px;
-    }
-}
-
-/* Dark mode for welcome screen */
-@media (prefers-color-scheme: dark) {
-    .welcome-card {
-        background: #2d3748;
-        color: white;
-    }
-
-    .welcome-header h1,
-    .welcome-message h2,
-    .welcome-features h3 {
-        color: white;
-    }
-
-    .welcome-header p,
-    .welcome-message p,
-    .welcome-features li,
-    .welcome-footer p {
-        color: #a0aec0;
     }
 }

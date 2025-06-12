@@ -4,7 +4,7 @@ import SignUpForm from './SignUpForm'
 import ConfirmEmailForm from './ConfirmEmailForm'
 
 const AuthLayout = () => {
-    const [currentView, setCurrentView] = useState('signup') // Changed default to 'signup'
+    const [currentView, setCurrentView] = useState('signup') // Default to signup
     const [pendingUsername, setPendingUsername] = useState('')
 
     const handleSignUpSuccess = (username) => {
