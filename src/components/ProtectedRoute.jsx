@@ -1,27 +1,37 @@
 import React from 'react'
 import { useAuth } from '../hooks/useAuth'
 import AuthLayout from './auth/AuthLayout'
-import WelcomeScreen from './WelcomeScreen'
 import LoadingSpinner from './LoadingSpinner'
 
 const ProtectedRoute = ({ children }) => {
-    const { isAuthenticated, isNewUser, loading, authStep } = useAuth()
+    const { isAuthenticated, loading, user } = useAuth()
 
+    console.log('🛡️ ProtectedRoute check:', { isAuthenticated, loading, hasUser: !!user })
+
+    // Always show loading first while checking auth
     if (loading) {
-        return <LoadingSpinner />
+        console.log('⏳ Still checking authentication...')
+        return (
+            <div style={{
+                minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+            }}>
+                <LoadingSpinner />
+            </div>
+        )
     }
 
-    // Not authenticated - show login/signup
+    // If not authenticated, FORCE authentication
     if (!isAuthenticated) {
+        console.log('❌ User not authenticated, showing auth screen')
         return <AuthLayout />
     }
 
-    // Authenticated but new user - show welcome screen first
-    if (isAuthenticated && isNewUser) {
-        return <WelcomeScreen />
-    }
-
-    // Fully authenticated and not new - show main app
+    // Only show main app if authenticated
+    console.log('✅ User authenticated, showing main app')
     return children
 }
 

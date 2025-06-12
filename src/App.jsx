@@ -30,6 +30,7 @@ function App() {
     }
 
     const handleSignOut = async () => {
+        console.log('🚪 User clicked sign out')
         await signOut()
     }
 
@@ -40,7 +41,7 @@ function App() {
                     <header className="header">
                         <div className="header-top">
                             <div className="user-info">
-                                <span>👋 {user?.attributes?.name || user?.username}</span>
+                                <span>👋 Welcome, {user?.attributes?.name || user?.username || 'User'}!</span>
                                 <button
                                     className="btn btn-secondary btn-small"
                                     onClick={handleSignOut}
@@ -90,7 +91,7 @@ function App() {
                     </main>
 
                     <footer className="footer">
-                        <p>Powered by ChatGPT & AWS Lambda</p>
+                        <p>Powered by ChatGPT & AWS Lambda • Secured by AWS Cognito</p>
                     </footer>
                 </div>
             </div>
