@@ -72,7 +72,7 @@ jobs:
         terraform plan -detailed-exitcode -out=tfplan
         echo "✅ Terraform plan completed"
       continue-on-error: true
-    
+
     - name: Terraform Apply
       if: |
         (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
