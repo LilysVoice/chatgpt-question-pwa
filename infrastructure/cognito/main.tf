@@ -1,3 +1,17 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
 # Cognito User Pool with custom email templates
 resource "aws_cognito_user_pool" "chatgpt_question_pool" {
   name = "${var.app_name}-user-pool"
@@ -67,7 +81,7 @@ resource "aws_cognito_user_pool" "chatgpt_question_pool" {
   }
 }
 
-# Updated User Pool Client for link-based verification
+# Cognito User Pool Client
 resource "aws_cognito_user_pool_client" "chatgpt_question_client" {
   name         = "${var.app_name}-client"
   user_pool_id = aws_cognito_user_pool.chatgpt_question_pool.id
@@ -116,4 +130,89 @@ resource "aws_cognito_user_pool_client" "chatgpt_question_client" {
   allowed_oauth_flows                  = ["code"]
   allowed_oauth_scopes                 = ["email", "openid", "profile"]
   supported_identity_providers         = ["COGNITO"]
+}
+
+# Cognito User Pool Domain
+resource "aws_cognito_user_pool_domain" "chatgpt_question_domain" {
+  domain       = "${var.app_name}-${random_string.domain_suffix.result}"
+  user_pool_id = aws_cognito_user_pool.chatgpt_question_pool.id
+}
+
+# Random string for unique domain
+resource "random_string" "domain_suffix" {
+  length  = 8
+  special = false
+  upper   = false
+}
+
+# IAM role for authenticated users
+resource "aws_iam_role" "authenticated_role" {
+  name = "${var.app_name}-authenticated-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Federated = "cognito-identity.amazonaws.com"
+        }
+        Action = "sts:AssumeRoleWithWebIdentity"
+        Condition = {
+          StringEquals = {
+            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.chatgpt_question_identity_pool.id
+          }
+          "ForAnyValue:StringLike" = {
+            "cognito-identity.amazonaws.com:amr" = "authenticated"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for authenticated users
+resource "aws_iam_role_policy" "authenticated_policy" {
+  name = "${var.app_name}-authenticated-policy"
+  role = aws_iam_role.authenticated_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "execute-api:Invoke"
+        ]
+        Resource = var.lambda_api_arn != "" ? var.lambda_api_arn : "*"
+      }
+    ]
+  })
+}
+
+# Cognito Identity Pool
+resource "aws_cognito_identity_pool" "chatgpt_question_identity_pool" {
+  identity_pool_name               = "${var.app_name}-identity-pool"
+  allow_unauthenticated_identities = false
+
+  cognito_identity_providers {
+    client_id               = aws_cognito_user_pool_client.chatgpt_question_client.id
+    provider_name           = aws_cognito_user_pool.chatgpt_question_pool.endpoint
+    server_side_token_check = false
+  }
+
+  tags = {
+    Name        = "${var.app_name}-identity-pool"
+    Environment = var.environment
+    Project     = "ChatGPT-Question"
+  }
+}
+
+# Identity pool role attachment
+resource "aws_cognito_identity_pool_roles_attachment" "chatgpt_question_roles" {
+  identity_pool_id = aws_cognito_identity_pool.chatgpt_question_identity_pool.id
+
+  roles = {
+    "authenticated" = aws_iam_role.authenticated_role.arn
+  }
 }
