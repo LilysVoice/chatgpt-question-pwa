@@ -3,7 +3,7 @@ name: Deploy PWA to GitHub Pages
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ 'infrastructure/**' ]  # Don't trigger on infrastructure changes
+    paths-ignore: [ 'infrastructure/**' ]
   pull_request:
     branches: [ main ]
     paths-ignore: [ 'infrastructure/**' ]
@@ -32,8 +32,14 @@ jobs:
         node-version: '18'
         cache: 'npm'
     
+    - name: Clear npm cache
+      run: npm cache clean --force
+    
     - name: Install dependencies
-      run: npm install  # Changed from npm ci
+      run: |
+        # Use npm install instead of npm ci to handle lock file issues
+        npm install
+        echo "✅ Dependencies installed successfully"
     
     - name: Create environment file
       run: |
@@ -71,6 +77,24 @@ jobs:
       id: deployment
       uses: actions/deploy-pages@v4
     
+    - name: Generate new package-lock.json
+      if: github.ref == 'refs/heads/main'
+      run: |
+        # Generate a fresh package-lock.json
+        rm -f package-lock.json
+        npm install --package-lock-only
+        
+        echo "📦 Updated package-lock.json" >> $GITHUB_STEP_SUMMARY
+        echo "Consider committing this file to your repository." >> $GITHUB_STEP_SUMMARY
+    
+    - name: Upload package-lock for download
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: updated-package-lock
+        path: package-lock.json
+        retention-days: 7
+    
     - name: Deployment Summary
       if: github.ref == 'refs/heads/main'
       run: |
@@ -84,3 +108,5 @@ jobs:
         echo "- ✅ ChatGPT API Integration" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Mobile Responsive Design" >> $GITHUB_STEP_SUMMARY
         echo "- ✅ Offline Capability" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "📦 **Download updated package-lock.json** from artifacts if needed" >> $GITHUB_STEP_SUMMARY
