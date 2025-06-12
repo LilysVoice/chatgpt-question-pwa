@@ -1,112 +1,41 @@
-name: Deploy PWA to GitHub Pages
+# Add this to your GitHub Actions workflow (.github/workflows/deploy.yml or similar)
+# This ensures environment variables are available during build
 
+name: Build and Deploy
 on:
   push:
     branches: [ main ]
-    paths-ignore: [ 'infrastructure/**' ]
   pull_request:
     branches: [ main ]
-    paths-ignore: [ 'infrastructure/**' ]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
+    - name: Checkout
+      uses: actions/checkout@v3
+
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
-    
-    - name: Clear npm cache
-      run: npm cache clean --force
-    
+
     - name: Install dependencies
-      run: |
-        # Use npm install instead of npm ci to handle lock file issues
-        npm install
-        echo "✅ Dependencies installed successfully"
-    
-    - name: Create environment file
-      run: |
-        echo "VITE_API_URL=${{ secrets.VITE_API_URL }}" > .env
-        echo "VITE_COGNITO_USER_POOL_ID=${{ secrets.VITE_COGNITO_USER_POOL_ID }}" >> .env
-        echo "VITE_COGNITO_CLIENT_ID=${{ secrets.VITE_COGNITO_CLIENT_ID }}" >> .env
-        echo "VITE_COGNITO_IDENTITY_POOL_ID=${{ secrets.VITE_COGNITO_IDENTITY_POOL_ID }}" >> .env
-        echo "VITE_AWS_REGION=${{ secrets.VITE_AWS_REGION }}" >> .env
-        
-        echo "✅ Environment variables configured"
-        echo "📋 Configuration summary:" >> $GITHUB_STEP_SUMMARY
-        echo "- API URL: ${{ secrets.VITE_API_URL && '✅ Configured' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Cognito User Pool: ${{ secrets.VITE_COGNITO_USER_POOL_ID && '✅ Configured' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Cognito Client: ${{ secrets.VITE_COGNITO_CLIENT_ID && '✅ Configured' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- Identity Pool: ${{ secrets.VITE_COGNITO_IDENTITY_POOL_ID && '✅ Configured' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-        echo "- AWS Region: ${{ secrets.VITE_AWS_REGION && '✅ Configured' || '❌ Missing' }}" >> $GITHUB_STEP_SUMMARY
-    
-    - name: Build PWA
-      run: |
-        npm run build
-        echo "✅ PWA build completed"
-    
-    - name: Setup Pages
-      if: github.ref == 'refs/heads/main'
-      uses: actions/configure-pages@v4
-    
-    - name: Upload artifact
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: './dist'
-    
+      run: npm ci
+
+    - name: Build
+      run: npm run build
+      env:
+        # Add your environment variables here
+        VITE_COGNITO_USER_POOL_ID: ${{ secrets.VITE_COGNITO_USER_POOL_ID }}
+        VITE_COGNITO_CLIENT_ID: ${{ secrets.VITE_COGNITO_CLIENT_ID }}
+        VITE_COGNITO_IDENTITY_POOL_ID: ${{ secrets.VITE_COGNITO_IDENTITY_POOL_ID }}
+        VITE_AWS_REGION: ${{ secrets.VITE_AWS_REGION }}
+
     - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
       if: github.ref == 'refs/heads/main'
-      id: deployment
-      uses: actions/deploy-pages@v4
-    
-    - name: Generate new package-lock.json
-      if: github.ref == 'refs/heads/main'
-      run: |
-        # Generate a fresh package-lock.json
-        rm -f package-lock.json
-        npm install --package-lock-only
-        
-        echo "📦 Updated package-lock.json" >> $GITHUB_STEP_SUMMARY
-        echo "Consider committing this file to your repository." >> $GITHUB_STEP_SUMMARY
-    
-    - name: Upload package-lock for download
-      if: github.ref == 'refs/heads/main'
-      uses: actions/upload-artifact@v4
       with:
-        name: updated-package-lock
-        path: package-lock.json
-        retention-days: 7
-    
-    - name: Deployment Summary
-      if: github.ref == 'refs/heads/main'
-      run: |
-        echo "### 🚀 PWA Deployed Successfully!" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Live URL:** ${{ steps.deployment.outputs.page_url }}" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "#### Features Enabled:" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Progressive Web App (installable)" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ AWS Cognito Authentication" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ ChatGPT API Integration" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Mobile Responsive Design" >> $GITHUB_STEP_SUMMARY
-        echo "- ✅ Offline Capability" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "📦 **Download updated package-lock.json** from artifacts if needed" >> $GITHUB_STEP_SUMMARY
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist

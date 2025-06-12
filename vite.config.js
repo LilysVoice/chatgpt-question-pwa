@@ -47,7 +47,8 @@ export default defineConfig({
             }
         })
     ],
-    base: './',
+    // Updated base path for GitHub Pages
+    base: '/chatgpt-question-pwa/',
     build: {
         outDir: 'dist',
         sourcemap: false,
@@ -55,9 +56,18 @@ export default defineConfig({
         rollupOptions: {
             output: {
                 manualChunks: {
-                    vendor: ['react', 'react-dom']
+                    vendor: ['react', 'react-dom'],
+                    aws: ['aws-amplify'] // Keep AWS in separate chunk but don't dynamic import
                 }
             }
         }
+    },
+    // Ensure proper asset resolution for GitHub Pages
+    define: {
+        // Ensure environment variables are available
+        'import.meta.env.VITE_COGNITO_USER_POOL_ID': JSON.stringify(process.env.VITE_COGNITO_USER_POOL_ID),
+        'import.meta.env.VITE_COGNITO_CLIENT_ID': JSON.stringify(process.env.VITE_COGNITO_CLIENT_ID),
+        'import.meta.env.VITE_COGNITO_IDENTITY_POOL_ID': JSON.stringify(process.env.VITE_COGNITO_IDENTITY_POOL_ID),
+        'import.meta.env.VITE_AWS_REGION': JSON.stringify(process.env.VITE_AWS_REGION)
     }
 })
