@@ -1,0 +1,168 @@
+/* Welcome Screen Styles */
+.welcome-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.welcome-card {
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    max-width: 600px;
+    width: 100%;
+    padding: 40px;
+    animation: slideUp 0.5s ease-out;
+    text-align: center;
+}
+
+.welcome-header h1 {
+    font-size: 2.5rem;
+    color: #2d3748;
+    margin-bottom: 10px;
+    font-weight: 700;
+}
+
+.welcome-header p {
+    color: #718096;
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+}
+
+.welcome-content {
+    text-align: left;
+    margin-bottom: 30px;
+}
+
+.welcome-message h2 {
+    color: #2d3748;
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+}
+
+.welcome-message p {
+    color: #4a5568;
+    line-height: 1.6;
+    margin-bottom: 25px;
+    font-size: 1.1rem;
+}
+
+.welcome-features h3 {
+    color: #2d3748;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+.welcome-features ul {
+    list-style: none;
+    padding: 0;
+    margin-bottom: 30px;
+}
+
+.welcome-features li {
+    color: #4a5568;
+    padding: 8px 0;
+    font-size: 1rem;
+    line-height: 1.4;
+}
+
+.welcome-actions {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    align-items: center;
+}
+
+.btn-large {
+    padding: 18px 36px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-width: 250px;
+}
+
+.welcome-footer {
+    text-align: center;
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+}
+
+.welcome-footer p {
+    color: #718096;
+    font-style: italic;
+}
+
+/* Auth Tabs */
+.auth-tabs {
+    display: flex;
+    margin-bottom: 30px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    background: none;
+    color: #718096;
+    font-weight: 600;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+}
+
+.tab-button.active {
+    color: #4f46e5;
+    border-bottom-color: #4f46e5;
+}
+
+.tab-button:hover {
+    color: #4f46e5;
+}
+
+/* Mobile responsiveness for welcome screen */
+@media (max-width: 768px) {
+    .welcome-card {
+        padding: 30px 20px;
+        margin: 10px;
+    }
+
+    .welcome-header h1 {
+        font-size: 2rem;
+    }
+
+    .btn-large {
+        min-width: 200px;
+        padding: 15px 30px;
+        font-size: 1.1rem;
+    }
+
+    .welcome-actions {
+        gap: 12px;
+    }
+}
+
+/* Dark mode for welcome screen */
+@media (prefers-color-scheme: dark) {
+    .welcome-card {
+        background: #2d3748;
+        color: white;
+    }
+
+    .welcome-header h1,
+    .welcome-message h2,
+    .welcome-features h3 {
+        color: white;
+    }
+
+    .welcome-header p,
+    .welcome-message p,
+    .welcome-features li,
+    .welcome-footer p {
+        color: #a0aec0;
+    }
+}

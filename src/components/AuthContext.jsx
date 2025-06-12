@@ -15,6 +15,8 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
     const [isAuthenticated, setIsAuthenticated] = useState(false)
+    const [isNewUser, setIsNewUser] = useState(false)
+    const [authStep, setAuthStep] = useState('login') // 'login', 'signup', 'confirm', 'authenticated'
 
     // Check if user is authenticated on mount
     useEffect(() => {
@@ -22,43 +24,79 @@ export const AuthProvider = ({ children }) => {
     }, [])
 
     const checkAuthState = async () => {
+        setLoading(true)
         try {
             const result = await authService.getCurrentUser()
             if (result.success) {
                 setUser(result.user)
                 setIsAuthenticated(true)
+                setAuthStep('authenticated')
+
+                // Check if this is their first time (you could store this in user attributes)
+                const isFirstTime = result.user.attributes?.['custom:first_login'] !== 'false'
+                setIsNewUser(isFirstTime)
             } else {
                 setUser(null)
                 setIsAuthenticated(false)
+                setAuthStep('login')
             }
         } catch (error) {
             setUser(null)
             setIsAuthenticated(false)
+            setAuthStep('login')
         } finally {
             setLoading(false)
         }
     }
 
     const signUp = async (username, password, email, name) => {
-        const result = await authService.signUp(username, password, email, name)
-        return result
+        setLoading(true)
+        try {
+            const result = await authService.signUp(username, password, email, name)
+            if (result.success) {
+                setAuthStep('confirm')
+                setIsNewUser(true)
+            }
+            return result
+        } finally {
+            setLoading(false)
+        }
     }
 
     const confirmSignUp = async (username, code) => {
-        const result = await authService.confirmSignUp(username, code)
-        if (result.success) {
-            // Optionally auto-sign in after confirmation
+        setLoading(true)
+        try {
+            const result = await authService.confirmSignUp(username, code)
+            if (result.success) {
+                setAuthStep('login')
+                setIsNewUser(true)
+            }
             return result
+        } finally {
+            setLoading(false)
         }
-        return result
     }
 
     const signIn = async (username, password) => {
-        const result = await authService.signIn(username, password)
-        if (result.success) {
-            await checkAuthState() // Refresh user state
+        setLoading(true)
+        try {
+            const result = await authService.signIn(username, password)
+            if (result.success) {
+                await checkAuthState() // This will set authenticated state
+
+                // Mark user as having completed first login
+                try {
+                    await authService.updateUserAttributes({
+                        'custom:first_login': 'false'
+                    })
+                } catch (attrError) {
+                    console.log('Could not update user attributes:', attrError)
+                }
+            }
+            return result
+        } finally {
+            setLoading(false)
         }
-        return result
     }
 
     const signOut = async () => {
@@ -66,6 +104,8 @@ export const AuthProvider = ({ children }) => {
         if (result.success) {
             setUser(null)
             setIsAuthenticated(false)
+            setIsNewUser(false)
+            setAuthStep('login')
         }
         return result
     }
@@ -73,12 +113,15 @@ export const AuthProvider = ({ children }) => {
     const value = {
         user,
         isAuthenticated,
+        isNewUser,
         loading,
+        authStep,
         signUp,
         confirmSignUp,
         signIn,
         signOut,
-        checkAuthState
+        checkAuthState,
+        setAuthStep
     }
 
     return (
