@@ -56,7 +56,7 @@ const SignUpForm = ({ onSignUpSuccess, onSwitchToLogin }) => {
             if (result.success) {
                 onSignUpSuccess(formData.email)
             } else {
-                setError(result.error)
+                setError(result.error || 'Failed to create account')
             }
         } catch (err) {
             setError('An unexpected error occurred')

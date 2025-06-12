@@ -9,7 +9,7 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
     const [error, setError] = useState('')
     const [resending, setResending] = useState(false)
 
-    const { confirmSignUp, signUp } = useAuth()
+    const { confirmSignUp } = useAuth()
 
     const handleSubmit = async (e) => {
         e.preventDefault()
@@ -21,7 +21,7 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
             if (result.success) {
                 onConfirmSuccess()
             } else {
-                setError(result.error)
+                setError(result.error || 'Failed to confirm email')
             }
         } catch (err) {
             setError('An unexpected error occurred')

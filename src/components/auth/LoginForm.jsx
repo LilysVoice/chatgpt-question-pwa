@@ -29,7 +29,7 @@ const LoginForm = ({ onSwitchToSignUp }) => {
         try {
             const result = await signIn(formData.username, formData.password)
             if (!result.success) {
-                setError(result.error)
+                setError(result.error || 'Failed to sign in')
             }
             // Success is handled by AuthContext
         } catch (err) {
