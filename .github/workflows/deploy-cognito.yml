@@ -1,0 +1,168 @@
+name: Deploy Cognito Infrastructure
+
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'infrastructure/**' ]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Terraform action to perform'
+        required: true
+        default: 'apply'
+        type: choice
+        options:
+        - plan
+        - apply
+        - destroy
+
+env:
+  AWS_REGION: us-east-2
+  TERRAFORM_VERSION: 1.5.0
+
+jobs:
+  deploy-cognito:
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: infrastructure/cognito
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: ${{ env.AWS_REGION }}
+    
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.TERRAFORM_VERSION }}
+        terraform_wrapper: false
+    
+    - name: Create terraform.tfvars
+      run: |
+        cat > terraform.tfvars << EOF
+        aws_region = "${{ env.AWS_REGION }}"
+        app_name = "${{ secrets.APP_NAME || 'chatgpt-question' }}"
+        environment = "${{ secrets.ENVIRONMENT || 'production' }}"
+        domain_name = "${{ secrets.DOMAIN_NAME || format('{0}.github.io/{1}', github.repository_owner, github.event.repository.name) }}"
+        lambda_api_arn = "${{ secrets.LAMBDA_API_ARN || '' }}"
+        EOF
+        echo "✅ Created terraform.tfvars"
+    
+    - name: Terraform Init
+      run: |
+        terraform init
+        echo "✅ Terraform initialized"
+    
+    - name: Terraform Validate
+      run: |
+        terraform validate
+        echo "✅ Terraform configuration is valid"
+    
+    - name: Terraform Plan
+      id: plan
+      run: |
+        terraform plan -detailed-exitcode -out=tfplan
+        echo "✅ Terraform plan completed"
+      continue-on-error: true
+    
+    - name: Terraform Apply
+      if: |
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      run: |
+        terraform apply -auto-approve tfplan
+        echo "✅ Terraform apply completed"
+    
+    - name: Get All Terraform Outputs
+      if: |
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      id: terraform-outputs
+      run: |
+        echo "🔍 Getting Terraform outputs..."
+        
+        # Get individual outputs
+        USER_POOL_ID=$(terraform output -raw user_pool_id 2>/dev/null || echo "")
+        CLIENT_ID=$(terraform output -raw user_pool_client_id 2>/dev/null || echo "")
+        IDENTITY_POOL_ID=$(terraform output -raw identity_pool_id 2>/dev/null || echo "")
+        COGNITO_DOMAIN=$(terraform output -raw cognito_domain_url 2>/dev/null || echo "")
+        AWS_REGION_OUTPUT=$(terraform output -raw aws_region 2>/dev/null || echo "${{ env.AWS_REGION }}")
+        
+        # Set outputs for later steps
+        echo "user_pool_id=$USER_POOL_ID" >> $GITHUB_OUTPUT
+        echo "client_id=$CLIENT_ID" >> $GITHUB_OUTPUT
+        echo "identity_pool_id=$IDENTITY_POOL_ID" >> $GITHUB_OUTPUT
+        echo "cognito_domain=$COGNITO_DOMAIN" >> $GITHUB_OUTPUT
+        echo "aws_region=$AWS_REGION_OUTPUT" >> $GITHUB_OUTPUT
+        
+        # Verify we got something
+        if [ -z "$USER_POOL_ID" ] || [ -z "$CLIENT_ID" ]; then
+          echo "❌ ERROR: Missing critical Cognito outputs!"
+          terraform output
+          exit 1
+        else
+          echo "✅ All required outputs captured successfully"
+        fi
+    
+    - name: Create GitHub Secrets Instructions
+      if: |
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      run: |
+        echo "### 🔐 Cognito Infrastructure Deployed Successfully!" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### 📋 Add these secrets to your GitHub repository:" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "Go to **Settings** → **Secrets and variables** → **Actions** → **New repository secret**" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "| Secret Name | Value |" >> $GITHUB_STEP_SUMMARY
+        echo "|-------------|-------|" >> $GITHUB_STEP_SUMMARY
+        echo "| \`VITE_COGNITO_USER_POOL_ID\` | \`${{ steps.terraform-outputs.outputs.user_pool_id }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| \`VITE_COGNITO_CLIENT_ID\` | \`${{ steps.terraform-outputs.outputs.client_id }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| \`VITE_COGNITO_IDENTITY_POOL_ID\` | \`${{ steps.terraform-outputs.outputs.identity_pool_id }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| \`VITE_AWS_REGION\` | \`${{ steps.terraform-outputs.outputs.aws_region }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "#### 🌐 Cognito Configuration:" >> $GITHUB_STEP_SUMMARY
+        echo "- **User Pool ID**: \`${{ steps.terraform-outputs.outputs.user_pool_id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Client ID**: \`${{ steps.terraform-outputs.outputs.client_id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Identity Pool ID**: \`${{ steps.terraform-outputs.outputs.identity_pool_id }}\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Cognito Domain**: ${{ steps.terraform-outputs.outputs.cognito_domain }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **AWS Region**: ${{ steps.terraform-outputs.outputs.aws_region }}" >> $GITHUB_STEP_SUMMARY
+    
+    - name: Create Configuration Files
+      if: |
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      run: |
+        mkdir -p ../outputs
+        
+        # Create GitHub secrets file
+        cat > ../outputs/github-secrets.txt << EOF
+        # Copy these values to GitHub Repository Secrets:
+        # Go to Settings → Secrets and variables → Actions → New repository secret
+        
+        VITE_COGNITO_USER_POOL_ID=${{ steps.terraform-outputs.outputs.user_pool_id }}
+        VITE_COGNITO_CLIENT_ID=${{ steps.terraform-outputs.outputs.client_id }}
+        VITE_COGNITO_IDENTITY_POOL_ID=${{ steps.terraform-outputs.outputs.identity_pool_id }}
+        VITE_AWS_REGION=${{ steps.terraform-outputs.outputs.aws_region }}
+        EOF
+        
+        echo "✅ Created configuration files"
+    
+    - name: Upload Configuration Artifacts
+      if: |
+        (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+      uses: actions/upload-artifact@v4
+      with:
+        name: cognito-configuration
+        path: infrastructure/outputs/
+        retention-days: 30
