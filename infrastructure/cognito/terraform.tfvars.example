@@ -1,0 +1,5 @@
+aws_region = "us-east-2"
+app_name = "chatgpt-question"
+environment = "production"
+domain_name = "yourusername.github.io/chatgpt-question-pwa"
+lambda_api_arn = "arn:aws:execute-api:us-east-2:123456789012:abcdef123/*"
