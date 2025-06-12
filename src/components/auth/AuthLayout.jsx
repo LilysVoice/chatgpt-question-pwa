@@ -1,28 +1,35 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { useAuth } from '../../hooks/useAuth'
 import LoginForm from './LoginForm'
 import SignUpForm from './SignUpForm'
 import ConfirmEmailForm from './ConfirmEmailForm'
 
 const AuthLayout = () => {
-    const [currentView, setCurrentView] = useState('signup') // Default to signup
-    const [pendingUsername, setPendingUsername] = useState('')
+    const { authStep, pendingUsername, setAuthStep, resendConfirmationCode } = useAuth()
 
     const handleSignUpSuccess = (username) => {
-        setPendingUsername(username)
-        setCurrentView('confirm')
+        // No need to set state here - AuthContext handles it
+        console.log('📝 Sign up success in AuthLayout for:', username)
     }
 
     const handleConfirmSuccess = () => {
-        setCurrentView('login')
-        setPendingUsername('')
+        console.log('✅ Confirmation success in AuthLayout')
+        setAuthStep('login')
+    }
+
+    const handleResendCode = async () => {
+        if (pendingUsername) {
+            return await resendConfirmationCode(pendingUsername)
+        }
+        return { success: false, error: 'No username found' }
     }
 
     const renderCurrentView = () => {
-        switch (currentView) {
+        switch (authStep) {
             case 'login':
                 return (
                     <LoginForm
-                        onSwitchToSignUp={() => setCurrentView('signup')}
+                        onSwitchToSignUp={() => setAuthStep('signup')}
                     />
                 )
             case 'confirm':
@@ -30,16 +37,31 @@ const AuthLayout = () => {
                     <ConfirmEmailForm
                         username={pendingUsername}
                         onConfirmSuccess={handleConfirmSuccess}
-                        onBackToSignUp={() => setCurrentView('signup')}
+                        onBackToSignUp={() => setAuthStep('signup')}
+                        onResendCode={handleResendCode}
                     />
                 )
-            default: // 'signup'
+            case 'signup':
+            default:
                 return (
                     <SignUpForm
                         onSignUpSuccess={handleSignUpSuccess}
-                        onSwitchToLogin={() => setCurrentView('login')}
+                        onSwitchToLogin={() => setAuthStep('login')}
                     />
                 )
+        }
+    }
+
+    const getHeaderText = () => {
+        switch (authStep) {
+            case 'signup':
+                return 'Create your account to start asking questions'
+            case 'login':
+                return 'Welcome back! Sign in to continue'
+            case 'confirm':
+                return 'Check your email for verification'
+            default:
+                return 'Welcome to ChatGPT Question App'
         }
     }
 
@@ -48,29 +70,26 @@ const AuthLayout = () => {
             <div className="auth-card">
                 <div className="auth-header">
                     <h1>ChatGPT Question App</h1>
-                    {currentView === 'signup' ? (
-                        <p>Create your account to start asking questions</p>
-                    ) : currentView === 'login' ? (
-                        <p>Welcome back! Sign in to continue</p>
-                    ) : (
-                        <p>Check your email for verification</p>
-                    )}
+                    <p>{getHeaderText()}</p>
                 </div>
 
-                <div className="auth-tabs">
-                    <button
-                        className={`tab-button ${currentView === 'signup' ? 'active' : ''}`}
-                        onClick={() => setCurrentView('signup')}
-                    >
-                        Create Account
-                    </button>
-                    <button
-                        className={`tab-button ${currentView === 'login' ? 'active' : ''}`}
-                        onClick={() => setCurrentView('login')}
-                    >
-                        Sign In
-                    </button>
-                </div>
+                {/* Only show tabs for login/signup, not during confirmation */}
+                {authStep !== 'confirm' && (
+                    <div className="auth-tabs">
+                        <button
+                            className={`tab-button ${authStep === 'signup' ? 'active' : ''}`}
+                            onClick={() => setAuthStep('signup')}
+                        >
+                            Create Account
+                        </button>
+                        <button
+                            className={`tab-button ${authStep === 'login' ? 'active' : ''}`}
+                            onClick={() => setAuthStep('login')}
+                        >
+                            Sign In
+                        </button>
+                    </div>
+                )}
 
                 {renderCurrentView()}
             </div>

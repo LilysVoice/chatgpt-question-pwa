@@ -3,11 +3,12 @@ import { useAuth } from '../../hooks/useAuth'
 import LoadingSpinner from '../LoadingSpinner'
 import ErrorMessage from '../ErrorMessage'
 
-const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
+const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp, onResendCode }) => {
     const [code, setCode] = useState('')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
     const [resending, setResending] = useState(false)
+    const [successMessage, setSuccessMessage] = useState('')
 
     const { confirmSignUp } = useAuth()
 
@@ -15,15 +16,22 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
         e.preventDefault()
         setLoading(true)
         setError('')
+        setSuccessMessage('')
 
         try {
+            console.log('📧 Attempting to confirm with code:', code)
             const result = await confirmSignUp(username, code)
             if (result.success) {
-                onConfirmSuccess()
+                console.log('✅ Confirmation successful!')
+                setSuccessMessage('Email confirmed successfully! You can now sign in.')
+                setTimeout(() => {
+                    onConfirmSuccess()
+                }, 1500)
             } else {
                 setError(result.error || 'Failed to confirm email')
             }
         } catch (err) {
+            console.error('❌ Confirmation error:', err)
             setError('An unexpected error occurred')
         } finally {
             setLoading(false)
@@ -33,13 +41,18 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
     const handleResendCode = async () => {
         setResending(true)
         setError('')
+        setSuccessMessage('')
 
         try {
-            // Note: AWS Cognito doesn't have a separate resend function
-            // We need to trigger a new sign up to resend the code
-            // In a real app, you might want to implement resendConfirmationCode
-            setError('Please try signing up again to receive a new code')
+            console.log('📧 Resending confirmation code to:', username)
+            const result = await onResendCode()
+            if (result.success) {
+                setSuccessMessage('Confirmation code sent! Check your email.')
+            } else {
+                setError(result.error || 'Failed to resend code')
+            }
         } catch (err) {
+            console.error('❌ Resend error:', err)
             setError('Failed to resend code')
         } finally {
             setResending(false)
@@ -51,6 +64,9 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
         if (value.length <= 6) {
             setCode(value)
         }
+        // Clear messages when user starts typing
+        if (error) setError('')
+        if (successMessage) setSuccessMessage('')
     }
 
     if (loading) {
@@ -79,11 +95,21 @@ const ConfirmEmailForm = ({ username, onConfirmSuccess, onBackToSignUp }) => {
                         maxLength="6"
                         className="code-input"
                         autoComplete="one-time-code"
+                        style={{
+                            fontSize: '1.2em',
+                            textAlign: 'center',
+                            letterSpacing: '0.1em'
+                        }}
                     />
                     <small>Enter the 6-digit code from your email</small>
                 </div>
 
                 {error && <ErrorMessage message={error} />}
+                {successMessage && (
+                    <div className="success-message" style={{ color: 'green', marginBottom: '1rem' }}>
+                        {successMessage}
+                    </div>
+                )}
 
                 <button
                     type="submit"
