@@ -1,6 +1,7 @@
 // EmailVerificationHandler.jsx - Handle email verification from links
 import React, { useEffect, useState } from 'react'
 import { useAuth } from '../../hooks/useAuth'
+import { confirmSignUp } from 'aws-amplify/auth'
 import LoadingSpinner from '../LoadingSpinner'
 import ErrorMessage from '../ErrorMessage'
 
@@ -22,9 +23,6 @@ const EmailVerificationHandler = () => {
                 }
 
                 console.log('🔗 Processing email verification link for:', username)
-
-                // Import Amplify Auth to confirm the signup
-                const { confirmSignUp } = await import('aws-amplify/auth')
 
                 await confirmSignUp({
                     username: decodeURIComponent(username),

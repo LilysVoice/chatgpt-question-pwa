@@ -1,4 +1,4 @@
-// Updated auth service for AWS Amplify v6 with proper confirmation handling
+// Fixed auth service with static imports for GitHub Pages deployment
 import { Amplify } from 'aws-amplify'
 import { getCurrentUser, signUp, confirmSignUp, signIn, signOut, resendSignUpCode } from 'aws-amplify/auth'
 
