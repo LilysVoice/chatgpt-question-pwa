@@ -13,9 +13,10 @@ export const useAuthContext = () => {
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null)
-    const [loading, setLoading] = useState(true) // Start with loading true
-    const [isAuthenticated, setIsAuthenticated] = useState(false) // Start with false
+    const [loading, setLoading] = useState(true)
+    const [isAuthenticated, setIsAuthenticated] = useState(false)
     const [authStep, setAuthStep] = useState('login')
+    const [pendingUsername, setPendingUsername] = useState('') // Store username for confirmation
 
     // Check authentication status on mount
     useEffect(() => {
@@ -72,6 +73,7 @@ export const AuthProvider = ({ children }) => {
             const result = await authService.signUp(username, password, email, name)
             if (result.success) {
                 console.log('✅ Sign up successful, need to confirm email')
+                setPendingUsername(username)
                 setAuthStep('confirm')
                 return result
             } else {
@@ -94,6 +96,7 @@ export const AuthProvider = ({ children }) => {
             const result = await authService.confirmSignUp(username, code)
             if (result.success) {
                 console.log('✅ Email confirmed successfully')
+                setPendingUsername('')
                 setAuthStep('login')
                 return result
             } else {
@@ -102,6 +105,27 @@ export const AuthProvider = ({ children }) => {
             }
         } catch (error) {
             console.log('❌ Confirm error:', error)
+            return { success: false, error: error.message }
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const resendConfirmationCode = async (username) => {
+        console.log('📧 Resending confirmation code for:', username)
+        setLoading(true)
+
+        try {
+            const result = await authService.resendConfirmationCode(username)
+            if (result.success) {
+                console.log('✅ Confirmation code resent successfully')
+                return result
+            } else {
+                console.log('❌ Resend failed:', result.error)
+                return result
+            }
+        } catch (error) {
+            console.log('❌ Resend error:', error)
             return { success: false, error: error.message }
         } finally {
             setLoading(false)
@@ -121,6 +145,14 @@ export const AuthProvider = ({ children }) => {
                 return result
             } else {
                 console.log('❌ Sign in failed:', result.error)
+
+                // Check if user needs confirmation
+                if (result.needsConfirmation) {
+                    console.log('⚠️ User needs confirmation, switching to confirm step')
+                    setPendingUsername(result.username || username)
+                    setAuthStep('confirm')
+                }
+
                 return result
             }
         } catch (error) {
@@ -142,6 +174,7 @@ export const AuthProvider = ({ children }) => {
                 setUser(null)
                 setIsAuthenticated(false)
                 setAuthStep('login')
+                setPendingUsername('')
                 return result
             } else {
                 console.log('❌ Sign out failed:', result.error)
@@ -160,8 +193,10 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated,
         loading,
         authStep,
+        pendingUsername,
         signUp,
         confirmSignUp,
+        resendConfirmationCode,
         signIn,
         signOut,
         checkAuthState,
@@ -173,7 +208,8 @@ export const AuthProvider = ({ children }) => {
         isAuthenticated,
         loading,
         authStep,
-        hasUser: !!user
+        hasUser: !!user,
+        pendingUsername
     })
 
     return (
