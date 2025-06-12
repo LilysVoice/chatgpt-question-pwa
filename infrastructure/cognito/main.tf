@@ -1,18 +1,4 @@
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
-
-provider "aws" {
-  region = var.aws_region
-}
-
-# Cognito User Pool
+# Cognito User Pool with custom email templates
 resource "aws_cognito_user_pool" "chatgpt_question_pool" {
   name = "${var.app_name}-user-pool"
 
@@ -49,6 +35,13 @@ resource "aws_cognito_user_pool" "chatgpt_question_pool" {
     advanced_security_mode = "ENFORCED"
   }
 
+  # Custom email verification message with clickable link
+  verification_message_template {
+    default_email_option  = "CONFIRM_WITH_LINK"
+    email_subject_by_link = "Verify your ChatGPT Question App account"
+    email_message_by_link = "Please click the link below to verify your email address: {##Verify Email##}"
+  }
+
   # Schema for user attributes
   schema {
     name                = "email"
@@ -74,25 +67,28 @@ resource "aws_cognito_user_pool" "chatgpt_question_pool" {
   }
 }
 
-# Cognito User Pool Client
+# Updated User Pool Client for link-based verification
 resource "aws_cognito_user_pool_client" "chatgpt_question_client" {
   name         = "${var.app_name}-client"
   user_pool_id = aws_cognito_user_pool.chatgpt_question_pool.id
 
-  # Client settings
-  generate_secret = false # Set to false for public clients (SPAs)
+  # Client settings - no secret for public clients (SPAs)
+  generate_secret = false
 
-  # OAuth settings
-  allowed_oauth_flows_user_pool_client = true
-  allowed_oauth_flows                  = ["code", "implicit"]
-  allowed_oauth_scopes                 = ["phone", "email", "openid", "profile", "aws.cognito.signin.user.admin"]
+  # Enable SRP authentication and user password auth
+  explicit_auth_flows = [
+    "ALLOW_USER_SRP_AUTH",
+    "ALLOW_USER_PASSWORD_AUTH",
+    "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_ADMIN_USER_PASSWORD_AUTH"
+  ]
 
-  # Callback URLs for your PWA
+  # Callback URLs for email verification links
   callback_urls = [
+    "https://${var.domain_name}/auth/verify",
     "https://${var.domain_name}",
-    "https://${var.domain_name}/auth/callback",
-    "http://localhost:5173", # For local development
-    "http://localhost:5173/auth/callback"
+    "http://localhost:5173/auth/verify",
+    "http://localhost:5173"
   ]
 
   logout_urls = [
@@ -100,15 +96,12 @@ resource "aws_cognito_user_pool_client" "chatgpt_question_client" {
     "http://localhost:5173"
   ]
 
-  # Supported identity providers
-  supported_identity_providers = ["COGNITO"]
+  # Token validity (in minutes)
+  access_token_validity  = 60    # 1 hour
+  id_token_validity      = 60    # 1 hour  
+  refresh_token_validity = 43200 # 30 days
 
-  # Token validity (in minutes, not hours)
-  access_token_validity  = 60    # 1 hour (60 minutes)
-  id_token_validity      = 60    # 1 hour (60 minutes)
-  refresh_token_validity = 43200 # 30 days (30 * 24 * 60 minutes)
-
-  # Token validity units (specify the units explicitly)
+  # Token validity units
   token_validity_units {
     access_token  = "minutes"
     id_token      = "minutes"
@@ -118,94 +111,9 @@ resource "aws_cognito_user_pool_client" "chatgpt_question_client" {
   # Prevent user existence errors
   prevent_user_existence_errors = "ENABLED"
 
-  # Enable SRP authentication
-  explicit_auth_flows = [
-    "ALLOW_USER_SRP_AUTH",
-    "ALLOW_REFRESH_TOKEN_AUTH"
-  ]
-}
-
-# Cognito User Pool Domain
-resource "aws_cognito_user_pool_domain" "chatgpt_question_domain" {
-  domain       = "${var.app_name}-${random_string.domain_suffix.result}"
-  user_pool_id = aws_cognito_user_pool.chatgpt_question_pool.id
-}
-
-# Random string for unique domain
-resource "random_string" "domain_suffix" {
-  length  = 8
-  special = false
-  upper   = false
-}
-
-# IAM role for authenticated users
-resource "aws_iam_role" "authenticated_role" {
-  name = "${var.app_name}-authenticated-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Principal = {
-          Federated = "cognito-identity.amazonaws.com"
-        }
-        Action = "sts:AssumeRoleWithWebIdentity"
-        Condition = {
-          StringEquals = {
-            "cognito-identity.amazonaws.com:aud" = aws_cognito_identity_pool.chatgpt_question_identity_pool.id
-          }
-          "ForAnyValue:StringLike" = {
-            "cognito-identity.amazonaws.com:amr" = "authenticated"
-          }
-        }
-      }
-    ]
-  })
-}
-
-# IAM policy for authenticated users
-resource "aws_iam_role_policy" "authenticated_policy" {
-  name = "${var.app_name}-authenticated-policy"
-  role = aws_iam_role.authenticated_role.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Effect = "Allow"
-        Action = [
-          "execute-api:Invoke"
-        ]
-        Resource = var.lambda_api_arn != "" ? var.lambda_api_arn : "*"
-      }
-    ]
-  })
-}
-
-# Cognito Identity Pool
-resource "aws_cognito_identity_pool" "chatgpt_question_identity_pool" {
-  identity_pool_name               = "${var.app_name}-identity-pool"
-  allow_unauthenticated_identities = false
-
-  cognito_identity_providers {
-    client_id               = aws_cognito_user_pool_client.chatgpt_question_client.id
-    provider_name           = aws_cognito_user_pool.chatgpt_question_pool.endpoint
-    server_side_token_check = false
-  }
-
-  tags = {
-    Name        = "${var.app_name}-identity-pool"
-    Environment = var.environment
-    Project     = "ChatGPT-Question"
-  }
-}
-
-# Identity pool role attachment
-resource "aws_cognito_identity_pool_roles_attachment" "chatgpt_question_roles" {
-  identity_pool_id = aws_cognito_identity_pool.chatgpt_question_identity_pool.id
-
-  roles = {
-    "authenticated" = aws_iam_role.authenticated_role.arn
-  }
+  # Support OAuth for link-based verification
+  allowed_oauth_flows_user_pool_client = true
+  allowed_oauth_flows                  = ["code"]
+  allowed_oauth_scopes                 = ["email", "openid", "profile"]
+  supported_identity_providers         = ["COGNITO"]
 }

@@ -1,14 +1,25 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useAuth } from '../../hooks/useAuth'
 import LoginForm from './LoginForm'
 import SignUpForm from './SignUpForm'
 import ConfirmEmailForm from './ConfirmEmailForm'
+import EmailVerificationHandler from './EmailVerificationHandler'
 
 const AuthLayout = () => {
     const { authStep, pendingUsername, setAuthStep, resendConfirmationCode } = useAuth()
 
+    // Check for email verification link on mount
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search)
+        const hasVerificationParams = urlParams.get('confirmation_code') && urlParams.get('username')
+
+        if (hasVerificationParams) {
+            console.log('🔗 Email verification link detected')
+            setAuthStep('email-verify')
+        }
+    }, [setAuthStep])
+
     const handleSignUpSuccess = (username) => {
-        // No need to set state here - AuthContext handles it
         console.log('📝 Sign up success in AuthLayout for:', username)
     }
 
@@ -41,6 +52,8 @@ const AuthLayout = () => {
                         onResendCode={handleResendCode}
                     />
                 )
+            case 'email-verify':
+                return <EmailVerificationHandler />
             case 'signup':
             default:
                 return (
@@ -60,6 +73,8 @@ const AuthLayout = () => {
                 return 'Welcome back! Sign in to continue'
             case 'confirm':
                 return 'Check your email for verification'
+            case 'email-verify':
+                return 'Verifying your email address'
             default:
                 return 'Welcome to ChatGPT Question App'
         }
@@ -73,8 +88,8 @@ const AuthLayout = () => {
                     <p>{getHeaderText()}</p>
                 </div>
 
-                {/* Only show tabs for login/signup, not during confirmation */}
-                {authStep !== 'confirm' && (
+                {/* Only show tabs for login/signup, not during confirmation or verification */}
+                {authStep !== 'confirm' && authStep !== 'email-verify' && (
                     <div className="auth-tabs">
                         <button
                             className={`tab-button ${authStep === 'signup' ? 'active' : ''}`}
